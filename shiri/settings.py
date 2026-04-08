@@ -20,12 +20,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)d&&m_s3bdp^s@ix006=fode4j-ytfwgjk$n$*d4d+5lqggn%5'
+import os
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-)d&&m_s3bdp^s@ix006=fode4j-ytfwgjk$n$*d4d+5lqggn%5')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'yourusername.pythonanywhere.com',  # Replace with your PythonAnywhere domain
+]
 
 
 # Application definition
@@ -115,7 +120,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -127,9 +137,19 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Modern Session Management
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'  # Enable in production
+
+# CSRF and Security
+CSRF_TRUSTED_ORIGINS = [
+    'https://yourusername.pythonanywhere.com',  # Replace with your PythonAnywhere domain
+]
+
+# Security Headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_SECURITY_POLICY = {
+    'default-src': ("'self'",),
+}
 SESSION_COOKIE_AGE = 3600  # 1 hour idle timeout by default
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Clear session when browser is closed
 SESSION_COOKIE_HTTPONLY = True  # Prevent JS from accessing session cookie
 SESSION_COOKIE_SAMESITE = 'Lax' # CSRF protection
-# SESSION_COOKIE_SECURE = True  # Enable this in production when using HTTPS
