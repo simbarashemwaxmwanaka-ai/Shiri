@@ -1,0 +1,12 @@
+{% extends 'community/base.html' %}
+
+{% block content %}
+<div class="success-container">
+    <h2>Registration Successful!</h2>
+    <p>The community member details have been securely recorded into the database.</p>
+    <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center;">
+        <a href="{% url 'add_member' %}" class="btn-secondary" style="margin-top: 0;">Add Another Member</a>
+        <a href="{% url 'home_dashboard' %}" class="btn-submit" style="margin-top: 0; padding: 0.75rem 1.5rem; text-decoration: none; display: inline-block;">Return Home</a>
+    </div>
+</div>
+{% endblock %}

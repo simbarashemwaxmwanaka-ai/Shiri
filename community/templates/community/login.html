@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Shiri Water Project</title>
+    <link rel="stylesheet" href="{% static 'community/styles.css' %}">
+    <style>
+        .login-card {
+            background: var(--surface-color);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 3rem;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.10);
+        }
+        .login-card h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            background: -webkit-linear-gradient(45deg, var(--primary-color), #8B5CF6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .login-card p.subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            font-size: 0.92rem;
+        }
+        .login-card .form-group { margin-bottom: 1.25rem; }
+        .login-card .btn-submit {
+            width: 100%;
+            margin-top: 0.5rem;
+            grid-column: unset;
+        }
+        .error-msg {
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #ef4444;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+        }
+        .back-link:hover { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+<div class="center-wrapper">
+    <div class="login-card">
+        <div style="text-align:center; margin-bottom:1.75rem;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">💧</div>
+            <h1>Admin Login</h1>
+            <p class="subtitle">Shiri Water Project &mdash; Membership System</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="error-msg">Invalid username or password. Please try again.</div>
+        {% endif %}
+
+        <form method="post" style="display:block;">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_username">Username</label>
+                <input type="text" name="username" id="id_username" placeholder="Enter username" autofocus required>
+            </div>
+            <div class="form-group">
+                <label for="id_password">Password</label>
+                <input type="password" name="password" id="id_password" placeholder="Enter password" required>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                <input type="checkbox" name="remember_me" id="remember_me" style="width: auto; margin: 0; cursor: pointer;">
+                <label for="remember_me" style="margin: 0; cursor: pointer; font-size: 0.85rem;">Remember me for 14 days</label>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit" class="btn-submit">Login &rarr;</button>
+        </form>
+
+        <a href="/" class="back-link">← Back to membership list</a>
+    </div>
+</div>
+
+<footer class="site-footer">
+    <div class="footer-content">
+        <span class="footer-credit">Designed by <strong>536a6D</strong></span>
+        <span class="footer-dot">•</span>
+        <span class="footer-rights">Shiri Water Project &copy; 2026</span>
+    </div>
+</footer>
+</body>
+</html>

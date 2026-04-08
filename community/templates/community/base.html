@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Project</title>
+    <link rel="stylesheet" href="{% static 'community/styles.css' %}">
+</head>
+<body>
+    {% block layout %}
+    <div class="center-wrapper">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    {% endblock %}
+    <footer class="site-footer">
+        <div class="footer-content">
+            <span class="footer-credit">Designed by <strong>536a6D</strong></span>
+            <span class="footer-dot">•</span>
+            <span class="footer-rights">Shiri Water Project &copy; 2026</span>
+        </div>
+    </footer>
+</body>
+</html>

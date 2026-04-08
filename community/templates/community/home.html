@@ -1,0 +1,455 @@
+{% extends 'community/base.html' %}
+
+{% block layout %}
+<div style="text-align: center; margin-bottom: 1rem; padding: 1.5rem 1rem 0;">
+    <h1 style="color: var(--primary-color); font-size: clamp(1.3rem, 4vw, 2.25rem); margin: 0; font-weight: 700; letter-spacing: -0.02em;">Shiri Water Project Membership List</h1>
+</div>
+
+<!-- Mobile sidebar toggle -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Open menu">&#9776;</button>
+<!-- Backdrop for mobile sidebar -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<div class="dashboard-layout">
+    <div class="sidebar" id="mainSidebar">
+        {% if user.is_authenticated %}
+            <div style="font-size:0.78rem; color:var(--text-secondary); padding:0.4rem 0.5rem; background:rgba(79,70,229,0.07); border-radius:6px; margin-bottom:0.5rem;">
+                &#128100; Logged in as <strong>{{ user.username }}</strong>
+            </div>
+        {% endif %}
+        <a href="{% url 'add_member' %}" class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %}>Add New</a>
+        <button class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %} onclick="document.getElementById('excelUpload').click()">Import from Excel</button>
+        <input type="file" id="excelUpload" accept=".xlsx" style="display: none;" onchange="handleExcelUpload(event)">
+        <button class="btn-sidebar active" onclick="loadMembers()">Search</button>
+        <button class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %} style="border:1px solid var(--primary-color)" onclick="showExportModal()">Export To...</button>
+        <button id="btn-view" class="btn-sidebar" disabled onclick="actionSelected('View')">View Member Details</button>
+        <button id="btn-edit" class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %} disabled onclick="actionSelected('Edit')">Edit</button>
+        <button id="btn-remove" class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %} disabled onclick="actionSelected('Remove')">Remove</button>
+        <button id="btn-move" class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %} disabled onclick="actionSelected('Move')">Move</button>
+        <button class="btn-sidebar" {% if not user.is_authenticated %}style="display:none"{% endif %} style="border:1px solid #ef4444; color:#ef4444; margin-top:auto;" onclick="deleteAllMembers()">&#128465; Delete All</button>
+        {% if user.is_authenticated %}
+            <a href="{% url 'logout' %}" class="btn-sidebar" style="text-align:center; color:#ef4444; border-color:#ef4444;">Logout</a>
+        {% else %}
+            <a href="{% url 'login' %}" class="btn-sidebar active" style="text-align:center; margin-top:auto;">&#128274; Login</a>
+        {% endif %}
+    </div>
+    <div class="main-content">
+        <div class="search-bar">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search members by name, ID, or number..." onkeyup="if(event.key === 'Enter') loadMembers()">
+            <button class="btn-sidebar active" style="margin:0; padding:0.75rem 2rem; width:auto; text-align:center" onclick="loadMembers()">Search</button>
+        </div>
+        <div id="resultsArea" style="flex:1; display:flex; flex-direction:column; min-height:0; padding: 0 0 1rem 0;">
+            <div style="color: var(--text-secondary); text-align: center; margin-top: 2rem;">
+                Enter a search query to load data.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="detailsModal" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+    <div class="modal-content">
+        <button class="close-modal" onclick="closeModal()">&times;</button>
+        <div class="header" style="margin-bottom:0">
+            <h2 style="font-size:1.5rem; color:var(--primary-color)">Member Details</h2>
+        </div>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<div id="exportModal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('exportModal').classList.remove('active')">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <button class="close-modal" onclick="document.getElementById('exportModal').classList.remove('active')">&times;</button>
+        <div class="header">
+            <h2 style="font-size:1.5rem; color:var(--primary-color)">Export Records</h2>
+            <p style="margin-top:0.5rem; color:var(--text-secondary);">Select a format to download what's currently visible.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+            <button onclick="downloadExport('csv')" class="btn-submit" style="background:#1d6f42;">Export to CSV</button>
+            <button onclick="downloadExport('excel')" class="btn-submit" style="background:#107c41;">Export to Excel (.xlsx)</button>
+            <button onclick="downloadExport('word')" class="btn-submit" style="background:#2b579a;">Export to Word (.docx)</button>
+            <button onclick="downloadExport('pdf')" class="btn-submit" style="background:#f40f02;">Export to PDF</button>
+        </div>
+    </div>
+</div>
+
+<!-- Debug / Info Modal -->
+<div id="debugModal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('debugModal').classList.remove('active')">
+    <div class="modal-content" style="max-width:560px;">
+        <button class="close-modal" onclick="document.getElementById('debugModal').classList.remove('active')">&times;</button>
+        <h2 style="font-size:1.3rem; color:var(--primary-color); margin-bottom:1rem;" id="debugModalTitle">Debug Info</h2>
+        <textarea id="debugModalText" readonly style="width:100%; height:260px; font-family:monospace; font-size:0.82rem; background:#0f172a; color:#94a3b8; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:0.75rem; resize:vertical; box-sizing:border-box;"></textarea>
+        <button onclick="copyDebugText()" class="btn-submit" style="margin-top:1rem; width:100%;">&#128203; Copy to Clipboard</button>
+    </div>
+</div>
+
+<script>
+    let selectedMemberIndex = null;
+    let selectedMemberName = '';
+    let isMoveMode = false;
+    let currentMembersList = [];
+
+    function toggleActionButtons(enabled) {
+        const buttons = ['btn-view', 'btn-edit', 'btn-remove', 'btn-move'];
+        buttons.forEach(id => {
+            document.getElementById(id).disabled = !enabled;
+        });
+    }
+
+    function selectMember(index, name) {
+        selectedMemberIndex = index;
+        selectedMemberName = name;
+        
+        // Remove selected class from all items
+        document.querySelectorAll('.member-table tbody tr').forEach(el => el.classList.remove('selected'));
+        
+        // Add selected class to the clicked item
+        const selectedElement = document.getElementById(`member-${index}`);
+        if(selectedElement) {
+            selectedElement.classList.add('selected');
+        }
+        
+        // Enable buttons inside the sidebar
+        toggleActionButtons(true);
+    }
+    
+    function actionSelected(actionName) {
+        if (!selectedMemberIndex) return;
+
+        if (actionName === 'View') {
+            const memberObj = currentMembersList.find(m => m.index === parseInt(selectedMemberIndex));
+            if(memberObj) {
+                const modal = document.getElementById('detailsModal');
+                
+                let detailsHtml = `
+                    <table class="modal-table">
+                        <tr><th>Member Number</th><td>${memberObj.member_number}</td></tr>
+                        <tr><th>ID Number</th><td>${memberObj.id_number}</td></tr>
+                        <tr><th>Name</th><td>${memberObj.name}</td></tr>
+                        <tr><th>Surname</th><td>${memberObj.surname}</td></tr>
+                        <tr><th>Address</th><td>${memberObj.address}</td></tr>
+                        <tr><th>Date of Birth</th><td>${memberObj.date_of_birth}</td></tr>
+                        <tr><th>Contact Point</th><td>${memberObj.contact}</td></tr>
+                        <tr><th>Sex / Gender</th><td>${memberObj.sex}</td></tr>
+                        <tr><th>Educational Qualification</th><td>${memberObj.educational_qualification}</td></tr>
+                    </table>
+                `;
+                document.getElementById('modalBody').innerHTML = detailsHtml;
+                modal.classList.add('active');
+            }
+            return;
+        }
+
+        if (actionName === 'Edit') {
+            window.location.href = `/edit/${selectedMemberIndex}/`;
+            return;
+        }
+
+        if (actionName === 'Remove') {
+            if (confirm(`Are you absolutely sure you want to permanently remove ${selectedMemberName} from the database?`)) {
+                fetch(`/delete/${selectedMemberIndex}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        loadMembers(); // Silently refresh the list
+                    } else {
+                        alert('Could not remove member. Ensure your connection is active.');
+                    }
+                })
+                .catch(err => {
+                    alert('An error occurred during removal.');
+                });
+            }
+            return;
+        }
+        
+        if (actionName === 'Move') {
+            isMoveMode = !isMoveMode;
+            document.getElementById('btn-move').style.backgroundColor = isMoveMode ? 'var(--primary-color)' : '';
+            document.getElementById('btn-move').style.color = isMoveMode ? 'white' : '';
+            
+            document.querySelectorAll('.member-table tbody tr').forEach(row => {
+                row.draggable = isMoveMode;
+                row.style.cursor = isMoveMode ? 'grab' : 'pointer';
+            });
+            return;
+        }
+
+        alert(`${actionName} action triggered for member: ${selectedMemberName} (Database Index: ${selectedMemberIndex})`);
+    }
+
+    function saveOrder() {
+        if (document.getElementById('searchInput').value.trim() !== '') return;
+        
+        const rows = document.querySelectorAll('.member-table tbody tr');
+        let order = [];
+        rows.forEach(row => {
+            let idAttr = row.id;
+            let dbId = idAttr.replace('member-', '');
+            order.push(parseInt(dbId));
+        });
+        
+        fetch('/api/reorder/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ order: order })
+        }).then(res => res.json()).then(data => {
+            // Silently saved
+        });
+    }
+
+    function loadMembers() {
+        const query = document.getElementById('searchInput').value;
+        const resultsArea = document.getElementById('resultsArea');
+        resultsArea.innerHTML = '<div style="text-align:center">Loading data...</div>';
+        
+        // Reset selection whenever loading a new list
+        selectedMemberIndex = null;
+        selectedMemberName = '';
+        isMoveMode = false;
+        document.getElementById('btn-move').style.backgroundColor = '';
+        document.getElementById('btn-move').style.color = '';
+        toggleActionButtons(false);
+
+        fetch(`/api/members/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                currentMembersList = data.members;
+                if (data.members.length === 0) {
+                    resultsArea.innerHTML = '<div style="color: var(--text-secondary); text-align: center; margin-top: 2rem;">No members found matching your search.</div>';
+                    return;
+                }
+
+                let html = '<div class="table-wrapper"><table class="member-table">';
+                html += `
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Name</th>
+                            <th>Surname</th>
+                            <th>Contact</th>
+                            <th>Sex</th>
+                            <th>Educational Qualification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                
+                data.members.forEach(member => {
+                    // escape quotes in names to prevent JS errors
+                    const fullName = `${member.name} ${member.surname}`.replace(/'/g, "\\'");
+                    
+                    html += `
+                        <tr id="member-${member.index}" onclick="selectMember('${member.index}', '${fullName}')">
+                            <td>${member.member_number}</td>
+                            <td>${member.name}</td>
+                            <td>${member.surname}</td>
+                            <td>${member.contact}</td>
+                            <td>${member.sex}</td>
+                            <td>${member.educational_qualification}</td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table></div>';
+                resultsArea.innerHTML = html;
+                
+                // Add Drag and Drop listeners
+                let draggedRow = null;
+                const rows = document.querySelectorAll('.member-table tbody tr');
+                
+                rows.forEach(row => {
+                    row.addEventListener('dragstart', function(e) {
+                        if(!isMoveMode) { e.preventDefault(); return; }
+                        draggedRow = this;
+                        setTimeout(() => this.classList.add('dragging'), 0);
+                    });
+                    
+                    row.addEventListener('dragend', function() {
+                        this.classList.remove('dragging');
+                        rows.forEach(r => r.classList.remove('drag-over'));
+                        draggedRow = null;
+                        saveOrder();
+                    });
+                    
+                    row.addEventListener('dragover', function(e) {
+                        e.preventDefault(); 
+                        if(this !== draggedRow && isMoveMode) {
+                            this.classList.add('drag-over');
+                        }
+                    });
+                    
+                    row.addEventListener('dragleave', function() {
+                        this.classList.remove('drag-over');
+                    });
+                    
+                    row.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation(); // Stop resultsArea from handling this
+                        this.classList.remove('drag-over');
+                        if (draggedRow && this !== draggedRow && isMoveMode) {
+                            let tbody = this.parentNode;
+                            let items = Array.from(tbody.children);
+                            let draggedIndex = items.indexOf(draggedRow);
+                            let targetIndex = items.indexOf(this);
+                            
+                            // Much more reliable insertion natively
+                            if (draggedIndex < targetIndex) {
+                                this.after(draggedRow);
+                            } else {
+                                this.before(draggedRow);
+                            }
+                        }
+                    });
+                });
+
+                // Catch drops that occur in the blank space below the table!
+                resultsArea.addEventListener('dragover', function(e) {
+                    if (isMoveMode) e.preventDefault();
+                });
+                
+                resultsArea.addEventListener('drop', function(e) {
+                    if (isMoveMode) e.preventDefault();
+                    if (draggedRow && isMoveMode && !e.target.closest('tr')) {
+                        const tbody = document.querySelector('.member-table tbody');
+                        if (tbody) {
+                            tbody.appendChild(draggedRow); // Send exactly to the very bottom
+                        }
+                    }
+                });
+            })
+            .catch(err => {
+                resultsArea.innerHTML = '<div style="color: red; text-align: center; margin-top: 2rem;">Error fetching members.</div>';
+            });
+    }
+
+    function closeModal() {
+        document.getElementById('detailsModal').classList.remove('active');
+    }
+
+    function showExportModal() {
+        document.getElementById('exportModal').classList.add('active');
+    }
+
+    function downloadExport(type) {
+        const query = document.getElementById('searchInput').value;
+        window.location.href = `/export/${type}/?q=${encodeURIComponent(query)}`;
+        document.getElementById('exportModal').classList.remove('active');
+    }
+
+    function handleExcelUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const resultsArea = document.getElementById('resultsArea');
+        resultsArea.innerHTML = '<div style="color:var(--primary-color); font-weight:600; text-align:center; margin-top:2rem;">Uploading & Processing Excel file. Please wait...</div>';
+        
+        let formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('/import/excel/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const debugText = [
+                    `Import Complete!`,
+                    `Successfully Imported: ${data.imported}`,
+                    `Skipped (Duplicates): ${data.skipped}`,
+                    ``,
+                    `--- DEBUG INFO ---`,
+                    `Headers detected in your Excel file:`,
+                    JSON.stringify(data.raw_headers, null, 2),
+                    ``,
+                    `Mapped to database fields:`,
+                    JSON.stringify(data.headers_found, null, 2)
+                ].join('\n');
+                showDebugModal('Import Result', debugText);
+                loadMembers();
+            } else {
+                const errText = [
+                    `Error processing Excel sheet:`,
+                    data.message || '',
+                    ``,
+                    `Detail:`,
+                    data.detail || 'No further detail available.'
+                ].join('\n');
+                showDebugModal('Import Error', errText);
+                loadMembers();
+            }
+        })
+        .catch(err => {
+            showDebugModal('System Error', 'File might be too large or the structure is corrupted.\n\n' + String(err));
+            loadMembers();
+        });
+        
+        // Reset file input so same file can be clicked again
+        event.target.value = '';
+    }
+
+    function showDebugModal(title, text) {
+        document.getElementById('debugModalTitle').textContent = title;
+        document.getElementById('debugModalText').value = text;
+        document.getElementById('debugModal').classList.add('active');
+    }
+
+    function copyDebugText() {
+        const ta = document.getElementById('debugModalText');
+        ta.select();
+        ta.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(ta.value).then(() => {
+            const btn = event.target;
+            btn.textContent = '\u2713 Copied!';
+            setTimeout(() => btn.textContent = '\uD83D\uDCCB Copy to Clipboard', 2000);
+        });
+    }
+
+    // Automatically load all members for demo
+    window.onload = loadMembers;
+
+    /* ---- Delete All ---- */
+    function deleteAllMembers() {
+        if (!confirm('⚠️ WARNING: This will permanently delete EVERY member from the database.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) return;
+        if (!confirm('🔴 FINAL CONFIRMATION\n\nYou are about to wipe the ENTIRE membership database.\n\nType OK to proceed.')) return;
+
+        fetch('/delete-all/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showDebugModal('Delete All Complete', `✅ Successfully deleted ${data.deleted} member record(s) from the database.`);
+                loadMembers();
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(() => alert('Network error during deletion.'));
+    }
+
+    /* ---- Mobile sidebar helpers ---- */
+    function toggleSidebar() {
+        const sidebar  = document.getElementById('mainSidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        sidebar.classList.toggle('open');
+        backdrop.classList.toggle('active');
+    }
+    function closeSidebar() {
+        document.getElementById('mainSidebar').classList.remove('open');
+        document.getElementById('sidebarBackdrop').classList.remove('active');
+    }
+</script>
+{% endblock %}

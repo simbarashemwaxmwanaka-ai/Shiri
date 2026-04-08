@@ -1,0 +1,59 @@
+{% extends 'community/base.html' %}
+
+{% block content %}
+<div class="header">
+    <h1>Shiri Water Project Membership List</h1>
+    <p>Please enter the details to add a new member securely.</p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label for="{{ form.member_number.id_for_label }}">Member Number</label>
+        {{ form.member_number }}
+    </div>
+    
+    <div class="form-group">
+        <label for="{{ form.id_number.id_for_label }}">ID Number</label>
+        {{ form.id_number }}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.name.id_for_label }}">Name</label>
+        {{ form.name }}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.surname.id_for_label }}">Surname</label>
+        {{ form.surname }}
+    </div>
+
+    <div class="form-group full-width">
+        <label for="{{ form.address.id_for_label }}">Address</label>
+        {{ form.address }}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth</label>
+        {{ form.date_of_birth }}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.contact.id_for_label }}">Contact Point</label>
+        {{ form.contact }}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.sex.id_for_label }}">Sex / Gender</label>
+        {{ form.sex }}
+    </div>
+
+    <div class="form-group full-width">
+        <label for="{{ form.educational_qualification.id_for_label }}">Educational Qualification</label>
+        {{ form.educational_qualification }}
+    </div>
+
+    <button type="submit" class="btn-submit">Submit Details</button>
+</form>
+{% endblock %}
